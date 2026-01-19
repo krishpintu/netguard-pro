@@ -1,5 +1,4 @@
 name: netguard-pro
-
 on:
   push:
     branches:
