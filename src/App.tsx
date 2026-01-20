@@ -12,8 +12,8 @@ const App: React.FC = () => {
     <Router>
       <Routes>
         {/* Public login route */}
-        <Route path="/" element={<Login />} />
-
+        <Route path="/netguard-pro/" element={<Login />} />
+         
         {/* Dashboard route with layout */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<Dashboard />} /> {/* /dashboard */}
