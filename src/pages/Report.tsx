@@ -301,34 +301,34 @@ export default function Report() {
           <p className="text-center text-red-500 mt-20">{error}</p>
         ) : activeTab === "groups" ? (
           // Host Group Table Full Page
-          <div className="w-full h-full overflow-auto bg-white rounded-xl shadow p-2">
+          <div className="w-full h-full overflow-auto bg-white rounded-xl shadow">
             <table className="w-full text-sm border-collapse">
               <thead className="bg-[#1a3d73] text-white sticky top-0 z-10">
                 <tr>
                   <th className="p-3 text-left">Sl No</th>
                   <th className="p-3 text-left">Group</th>
-                  <th className="p-3 text-left">Total Hosts</th>
-                  <th className="p-3 text-left">Total Up</th>
-                  <th className="p-3 text-left">Total Down</th>
+                  <th className="p-3 ">Total Hosts</th>
+                  <th className="p-3 ">Total Up</th>
+                  <th className="p-3 ">Total Down</th>
                 </tr>
               </thead>
               <tbody>
                 {groups.length ? (
                   groups.map((g, index) => (
                     <tr key={g.groupid} className="border-t hover:bg-gray-50">
-                      <td className="p-1 font-medium">{index + 1}</td>
-                      <td className="p-1">{g.name}</td>
-                      <td className="p-1">
+                      <td className="p-1 font-medium ">{index + 1}</td>
+                      <td className="p-1 ">{g.name}</td>
+                      <td className="p-1 text-center">
                         <span className="inline-block px-2 py-1 text-sm font-semibold bg-[#1a3d73] text-white rounded-full">
                           {g.totalHosts || 0}
                         </span>
                       </td>
-                      <td className="p-1">
+                      <td className="p-1 text-center">
                         <span className="inline-block px-2 py-1 text-sm font-semibold bg-green-100 text-green-800 rounded-full">
                           {g.upCount || 0}
                         </span>
                       </td>
-                      <td className="p-1">
+                      <td className="p-1 text-center">
                         <span className="inline-block px-2 py-1 text-sm font-semibold bg-red-100 text-red-800 rounded-full">
                           {g.downCount || 0}
                         </span>
@@ -399,7 +399,7 @@ export default function Report() {
             </div>
 
             {/* Table */}
-            <div className="flex-1 overflow-auto bg-white rounded-xl shadow p-4">
+            <div className="flex-1 overflow-auto bg-white rounded-xl shadow ">
               <table className="w-full text-sm border-collapse">
                 <thead className="bg-[#1a3d73] text-white sticky top-0 z-10">
                   <tr>

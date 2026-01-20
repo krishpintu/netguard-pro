@@ -18,6 +18,11 @@ const MAX_CELL_HEIGHT = 130;
 const BASE_CELL_WIDTH = 80;
 const BASE_CELL_HEIGHT = 70;
 
+// 🔽 Narrow container rules
+const SMALL_CONTAINER_WIDTH = 200;
+const SMALL_CELL_WIDTH = 92;
+const SMALL_CELL_HEIGHT = 80;
+
 const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [rows, setRows] = useState<HostItem[][]>([]);
@@ -35,35 +40,49 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
     if (!containerRef.current) return;
 
     const buildRows = (width: number, height: number) => {
-      // Step 1: Base width & height depending on group
+      /* =====================================================
+         🔴 FORCE FIXED SIZE WHEN CONTAINER < 200px
+      ===================================================== */
+      if (width < SMALL_CONTAINER_WIDTH) {
+        setCellSize({
+          width: SMALL_CELL_WIDTH,
+          height: SMALL_CELL_HEIGHT,
+        });
+
+        // One cell per row (safe for very narrow layouts)
+        const result: HostItem[][] = items.map((item) => [item]);
+        setRows(result);
+        return;
+      }
+
+      /* =====================================================
+         🟢 NORMAL RESPONSIVE BEHAVIOR
+      ===================================================== */
+
       let baseWidth = isSmallGroup
         ? Math.min(Math.max(120, width * 0.3), MAX_CELL_WIDTH)
         : isMediumGroup
-        ? Math.min(Math.max(BASE_CELL_WIDTH, width * 0.25), MAX_CELL_WIDTH)
-        : Math.min(Math.max(BASE_CELL_WIDTH, width * 0.2), MAX_CELL_WIDTH);
+          ? Math.min(Math.max(BASE_CELL_WIDTH, width * 0.25), MAX_CELL_WIDTH)
+          : Math.min(Math.max(BASE_CELL_WIDTH, width * 0.2), MAX_CELL_WIDTH);
 
       let baseHeight = isSmallGroup
         ? Math.min(Math.max(110, height * 0.3), MAX_CELL_HEIGHT)
         : isMediumGroup
-        ? Math.min(Math.max(BASE_CELL_HEIGHT, height * 0.25), MAX_CELL_HEIGHT)
-        : Math.min(Math.max(BASE_CELL_HEIGHT, height * 0.2), MAX_CELL_HEIGHT);
+          ? Math.min(Math.max(BASE_CELL_HEIGHT, height * 0.25), MAX_CELL_HEIGHT)
+          : Math.min(Math.max(BASE_CELL_HEIGHT, height * 0.2), MAX_CELL_HEIGHT);
 
-      // Step 2: Horizontal offset for staggered rows
       const horizontalOffset = -0.13 * baseWidth;
       let maxPerRow = Math.floor(width / (baseWidth + horizontalOffset));
       maxPerRow = Math.max(1, Math.min(maxPerRow, items.length));
 
-      // Step 3: Adjust width to fill container
       const effectiveWidth = width / maxPerRow - horizontalOffset;
       baseWidth = Math.min(effectiveWidth, MAX_CELL_WIDTH);
 
-      // Step 4: Scale height proportionally
       const scale = baseWidth / BASE_CELL_WIDTH;
       baseHeight = Math.min(BASE_CELL_HEIGHT * scale, MAX_CELL_HEIGHT);
 
       setCellSize({ width: baseWidth, height: baseHeight });
 
-      // Step 5: Build rows
       const result: HostItem[][] = [];
       let index = 0;
       let toggle = true;
@@ -78,15 +97,13 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
       setRows(result);
     };
 
-    // Initial build
     buildRows(
       containerRef.current.offsetWidth,
-      containerRef.current.offsetHeight
+      containerRef.current.offsetHeight,
     );
 
-    // Resize observer
     const resizeObserver = new ResizeObserver((entries) => {
-      for (let entry of entries) {
+      for (const entry of entries) {
         const { width, height } = entry.contentRect;
         buildRows(width, height);
       }
@@ -150,26 +167,20 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
           ? basePadding + (cellSize.width + horizontalOffset) / 2
           : basePadding;
 
-        // FIXED vertical gap
-        // const verticalSpacing = -22; // px
-        // const topOverlap = -cellSize.height * 0.07;
-
         return (
           <div
             key={rowIndex}
             className="honeycomb-row"
             style={{
-              display: "flex",
-              justifyContent: "flex-start",
-              gap: "0px",
-              flexWrap: items.length < 5 ? "wrap" : "nowrap",
               paddingLeft: rowPaddingLeft,
               paddingRight: basePadding,
+              flexWrap: items.length < 5 ? "wrap" : "nowrap",
             }}
           >
             {row.map((item) => {
               const isUp = item.lastvalue === "1";
               const verticalOverlap = cellSize.height * 0.25;
+
               return (
                 <div
                   key={item.itemid}
@@ -199,8 +210,10 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
                   >
                     <div className="flex flex-col items-center justify-center text-center px-1 w-full">
                       <span
-                        className="block w-full p-4 text-sm transition-all duration-150 overflow-hidden whitespace-nowrap text-ellipsis hover:overflow-visible hover:whitespace-normal"
-                        style={{ fontSize: items.length < 5 ? "14px" : "12px" }}
+                        className="block w-full p-4 text-sm overflow-hidden whitespace-nowrap text-ellipsis"
+                        style={{
+                          fontSize: items.length < 5 ? "14px" : "12px",
+                        }}
                       >
                         {item.name.length > 20
                           ? item.name.slice(0, 20) + "..."

@@ -5,51 +5,6 @@ import { Resizable } from "re-resizable";
 import { useTheme } from "../features/ThemeContext";
 import { FaEdit, FaCheck, FaTimes } from "react-icons/fa";
 
-type Rect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-const isOverlapping = (a: Rect, b: Rect) => {
-  return !(
-    a.x + a.width <= b.x ||
-    a.x >= b.x + b.width ||
-    a.y + a.height <= b.y ||
-    a.y >= b.y + b.height
-  );
-};
-
-const findFreePosition = (
-  newCard: Rect,
-  existingCards: Rect[],
-  containerWidth: number,
-  gap = 24,
-) => {
-  let x = newCard.x;
-  let y = newCard.y;
-
-  const MAX_TRIES = 500; // ✅ prevents infinite loop
-  let tries = 0;
-
-  while (
-    tries < MAX_TRIES &&
-    existingCards.some((card) => isOverlapping({ ...newCard, x, y }, card))
-  ) {
-    x += newCard.width + gap;
-
-    if (x + newCard.width > containerWidth) {
-      x = 0;
-      y += newCard.height + gap;
-    }
-
-    tries++;
-  }
-
-  return { x, y };
-};
-
 interface Host {
   hostid: string;
   host: string;
@@ -197,7 +152,12 @@ const Dashboard: React.FC = () => {
     const groupsWithItems = await fetchGroupItems(selectedGroups);
     setSubmittedGroups(groupsWithItems);
 
-    const containerW = containerRef.current?.offsetWidth || 1000;
+    // ✅ Ensure valid container width
+    const containerWidth =
+      containerRef.current?.offsetWidth && containerRef.current.offsetWidth > 0
+        ? containerRef.current.offsetWidth
+        : 1000;
+
     const gap = 24;
 
     const newCardSizes: Record<
@@ -205,25 +165,33 @@ const Dashboard: React.FC = () => {
       { width: number; height: number; x: number; y: number }
     > = {};
 
+    let currentX = 0;
+    let currentY = 0;
+    let rowHeight = 0;
+
     groupsWithItems.forEach((group) => {
-      const size = getDefaultCardSize(group);
+      const { width, height } = getDefaultCardSize(group);
 
-      const existingCards = Object.values(newCardSizes);
-
-      const pos = findFreePosition(
-        { x: 0, y: 0, width: size.width, height: size.height },
-        existingCards,
-        containerW,
-        gap,
-      );
+      // ⬇️ move to next row correctly
+      if (currentX + width > containerWidth) {
+        currentX = 0;
+        currentY += rowHeight + gap;
+        rowHeight = 0;
+      }
 
       newCardSizes[group.groupid] = {
-        ...size,
-        ...pos,
+        width,
+        height,
+        x: currentX,
+        y: currentY,
       };
+
+      currentX += width + gap;
+      rowHeight = Math.max(rowHeight, height);
     });
 
     setCardSizes(newCardSizes);
+    localStorage.setItem("cardSizes", JSON.stringify(newCardSizes));
 
     sessionStorage.setItem("selectSettingVisible", String(!isSettingVisible));
   };
@@ -248,62 +216,116 @@ const Dashboard: React.FC = () => {
     return { width: 300, height: 250 };
   };
 
-  /** LOAD FROM LOCALSTORAGE **/
+  /** LOAD FROM LOCALSTORAGE AND APPLY LAYOUT */
   useEffect(() => {
-    const storedGroups = localStorage.getItem("selectedGroups");
-    const storedCardSizes = localStorage.getItem("cardSizes");
+    let cancelled = false;
 
-    if (storedGroups) {
+    const initLayout = async () => {
+      const storedGroups = localStorage.getItem("selectedGroups");
+      const storedCardSizes = localStorage.getItem("cardSizes");
+
+      if (!storedGroups) return;
+
       const parsedGroups: HostGroup[] = JSON.parse(storedGroups);
       setSelectedGroups(parsedGroups);
 
-      fetchGroupItems(parsedGroups).then((groupsWithItems) => {
-        setSubmittedGroups(groupsWithItems);
+      const groupsWithItems = await fetchGroupItems(parsedGroups);
+      if (cancelled) return;
 
-        // Apply stored cardSizes if available
-        if (storedCardSizes) {
-          setCardSizes(JSON.parse(storedCardSizes));
-        } else {
-          // fallback default layout
-          const newSizes: Record<
-            string,
-            { width: number; height: number; x: number; y: number }
-          > = {};
-          const containerWidth = containerRef.current?.offsetWidth || 1000;
-          const gap = 24;
-          let currentX = 0;
-          let currentY = 0;
-          let rowHeight = 0;
+      setSubmittedGroups(groupsWithItems);
 
-          groupsWithItems.forEach((group) => {
-            const defaultSize = getDefaultCardSize(group);
-            const w = defaultSize.width;
-            const h = defaultSize.height;
+      // ✅ container width
+      const containerWidth =
+        containerRef.current?.offsetWidth &&
+        containerRef.current.offsetWidth > 0
+          ? containerRef.current.offsetWidth
+          : 1000;
 
-            if (currentX + w > containerWidth) {
-              currentX = 0;
-              currentY += rowHeight + gap;
-              rowHeight = 0;
-            }
+      const gap = 24;
 
-            newSizes[group.groupid] = {
-              width: w,
-              height: h,
-              x: currentX,
-              y: currentY,
-            };
-            currentX += w + gap;
-            rowHeight = Math.max(rowHeight, h);
-          });
+      /** --------------------------------------------------
+       * CASE 1: Stored cardSizes exist → use them
+       * -------------------------------------------------- */
+      if (storedCardSizes) {
+        const parsedSizes: Record<
+          string,
+          { width: number; height: number; x: number; y: number }
+        > = JSON.parse(storedCardSizes);
 
-          setCardSizes(newSizes);
+        const normalized: typeof parsedSizes = {};
+        let currentX = 0;
+        let currentY = 0;
+        let rowHeight = 0;
+
+        groupsWithItems.forEach((group) => {
+          const saved = parsedSizes[group.groupid];
+          const { width, height } = saved ?? getDefaultCardSize(group);
+
+          // If currentX + width exceeds container → move to next row
+          if (currentX + width > containerWidth) {
+            currentX = 0;
+            currentY += rowHeight + gap;
+            rowHeight = 0;
+          }
+
+          normalized[group.groupid] = {
+            width,
+            height,
+            x: saved?.x ?? currentX,
+            y: saved?.y ?? currentY,
+          };
+
+          currentX += width + gap;
+          rowHeight = Math.max(rowHeight, height);
+        });
+
+        setCardSizes(normalized);
+        return;
+      }
+
+      /** --------------------------------------------------
+       * CASE 2: No stored layout → fresh grid layout
+       * -------------------------------------------------- */
+      const newSizes: Record<
+        string,
+        { width: number; height: number; x: number; y: number }
+      > = {};
+      let currentX = 0;
+      let currentY = 0;
+      let rowHeight = 0;
+
+      groupsWithItems.forEach((group) => {
+        const { width: w, height: h } = getDefaultCardSize(group);
+
+        if (currentX + w > containerWidth) {
+          currentX = 0;
+          currentY += rowHeight + gap;
+          rowHeight = 0;
         }
-      });
-    }
 
-    // Settings visibility
+        newSizes[group.groupid] = {
+          width: w,
+          height: h,
+          x: currentX,
+          y: currentY,
+        };
+
+        currentX += w + gap;
+        rowHeight = Math.max(rowHeight, h);
+      });
+
+      setCardSizes(newSizes);
+    };
+
+    initLayout();
+
+    // Restore settings visibility
     const storedSetting = sessionStorage.getItem("selectSettingVisible");
     setIsSettingVisible(storedSetting === "true");
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   /** SAVE CARD SIZES **/
