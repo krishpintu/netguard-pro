@@ -5,6 +5,51 @@ import { Resizable } from "re-resizable";
 import { useTheme } from "../features/ThemeContext";
 import { FaEdit, FaCheck, FaTimes } from "react-icons/fa";
 
+type Rect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const isOverlapping = (a: Rect, b: Rect) => {
+  return !(
+    a.x + a.width <= b.x ||
+    a.x >= b.x + b.width ||
+    a.y + a.height <= b.y ||
+    a.y >= b.y + b.height
+  );
+};
+
+const findFreePosition = (
+  newCard: Rect,
+  existingCards: Rect[],
+  containerWidth: number,
+  gap = 24,
+) => {
+  let x = newCard.x;
+  let y = newCard.y;
+
+  const MAX_TRIES = 500; // ✅ prevents infinite loop
+  let tries = 0;
+
+  while (
+    tries < MAX_TRIES &&
+    existingCards.some((card) => isOverlapping({ ...newCard, x, y }, card))
+  ) {
+    x += newCard.width + gap;
+
+    if (x + newCard.width > containerWidth) {
+      x = 0;
+      y += newCard.height + gap;
+    }
+
+    tries++;
+  }
+
+  return { x, y };
+};
+
 interface Host {
   hostid: string;
   host: string;
@@ -79,8 +124,8 @@ const Dashboard: React.FC = () => {
         });
         setHostGroups(
           (response.data.result || []).filter(
-            (group: HostGroup) => group.hosts && group.hosts.length > 0
-          )
+            (group: HostGroup) => group.hosts && group.hosts.length > 0,
+          ),
         );
       } catch (err) {
         console.error(err);
@@ -97,7 +142,7 @@ const Dashboard: React.FC = () => {
   const toggleGroup = (group: HostGroup) => {
     if (selectedGroups.find((g) => g.groupid === group.groupid)) {
       setSelectedGroups(
-        selectedGroups.filter((g) => g.groupid !== group.groupid)
+        selectedGroups.filter((g) => g.groupid !== group.groupid),
       );
     } else {
       setSelectedGroups([...selectedGroups, group]);
@@ -151,6 +196,34 @@ const Dashboard: React.FC = () => {
 
     const groupsWithItems = await fetchGroupItems(selectedGroups);
     setSubmittedGroups(groupsWithItems);
+
+    const containerW = containerRef.current?.offsetWidth || 1000;
+    const gap = 24;
+
+    const newCardSizes: Record<
+      string,
+      { width: number; height: number; x: number; y: number }
+    > = {};
+
+    groupsWithItems.forEach((group) => {
+      const size = getDefaultCardSize(group);
+
+      const existingCards = Object.values(newCardSizes);
+
+      const pos = findFreePosition(
+        { x: 0, y: 0, width: size.width, height: size.height },
+        existingCards,
+        containerW,
+        gap,
+      );
+
+      newCardSizes[group.groupid] = {
+        ...size,
+        ...pos,
+      };
+    });
+
+    setCardSizes(newCardSizes);
 
     sessionStorage.setItem("selectSettingVisible", String(!isSettingVisible));
   };
@@ -392,6 +465,7 @@ const Dashboard: React.FC = () => {
             x: 0,
             y: 0,
           };
+
           const { width, height, x = 0, y = 0 } = card;
 
           const handleMouseDown = (e: React.MouseEvent) => {
@@ -427,7 +501,6 @@ const Dashboard: React.FC = () => {
             window.addEventListener("mousemove", handleMouseMove);
             window.addEventListener("mouseup", handleMouseUp);
           };
-
           const containerWidth = containerRef.current?.offsetWidth || 1000;
 
           return (
@@ -509,7 +582,7 @@ const Dashboard: React.FC = () => {
                               ...host,
                               lastvalue: item.lastvalue,
                               itemid: item.itemid,
-                            }))
+                            })),
                           )}
                         cardWidth={width}
                         cardHeight={height}

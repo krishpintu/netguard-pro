@@ -125,7 +125,7 @@ export default function Report() {
       });
 
       let groupData: Group[] = (response.data.result || []).filter(
-        (group: any) => group.hosts && group.hosts.length > 0
+        (group: any) => group.hosts && group.hosts.length > 0,
       );
       groupData = await fetchGroupItems(groupData);
       setGroups(groupData);
@@ -171,7 +171,7 @@ export default function Report() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const triggers = triggerRes.data?.result || [];
@@ -206,7 +206,7 @@ export default function Report() {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         const events = eventRes.data?.result || [];
@@ -270,10 +270,10 @@ export default function Report() {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header / Tabs */}
-      <div className="bg-gray-200 p-4 flex justify-start gap-4 rounded-b-xl shadow">
+      <div className="bg-gray-200 p-2 flex justify-start gap-4 rounded-b-xl shadow">
         <button
           onClick={() => setActiveTab("groups")}
-          className={`py-2 px-4 rounded-lg text-sm font-semibold transition ${
+          className={`py-1 px-2 rounded-lg text-sm font-semibold transition ${
             activeTab === "groups"
               ? "bg-white shadow text-blue-700"
               : "text-gray-500 hover:bg-gray-300"
@@ -283,7 +283,7 @@ export default function Report() {
         </button>
         <button
           onClick={() => setActiveTab("downtime")}
-          className={`py-2 px-4 rounded-lg text-sm font-semibold transition ${
+          className={`py-1 px-2 rounded-lg text-sm font-semibold transition ${
             activeTab === "downtime"
               ? "bg-white shadow text-blue-700"
               : "text-gray-500 hover:bg-gray-300"
@@ -294,14 +294,14 @@ export default function Report() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-2">
         {loading ? (
           <p className="text-center text-gray-400 mt-20">Loading...</p>
         ) : error ? (
           <p className="text-center text-red-500 mt-20">{error}</p>
         ) : activeTab === "groups" ? (
           // Host Group Table Full Page
-          <div className="w-full h-full overflow-auto bg-white rounded-xl shadow p-4">
+          <div className="w-full h-full overflow-auto bg-white rounded-xl shadow p-2">
             <table className="w-full text-sm border-collapse">
               <thead className="bg-[#1a3d73] text-white sticky top-0 z-10">
                 <tr>
@@ -316,19 +316,19 @@ export default function Report() {
                 {groups.length ? (
                   groups.map((g, index) => (
                     <tr key={g.groupid} className="border-t hover:bg-gray-50">
-                      <td className="p-3 font-medium">{index + 1}</td>
-                      <td className="p-3">{g.name}</td>
-                      <td className="p-3">
+                      <td className="p-1 font-medium">{index + 1}</td>
+                      <td className="p-1">{g.name}</td>
+                      <td className="p-1">
                         <span className="inline-block px-2 py-1 text-sm font-semibold bg-[#1a3d73] text-white rounded-full">
                           {g.totalHosts || 0}
                         </span>
                       </td>
-                      <td className="p-3">
+                      <td className="p-1">
                         <span className="inline-block px-2 py-1 text-sm font-semibold bg-green-100 text-green-800 rounded-full">
                           {g.upCount || 0}
                         </span>
                       </td>
-                      <td className="p-3">
+                      <td className="p-1">
                         <span className="inline-block px-2 py-1 text-sm font-semibold bg-red-100 text-red-800 rounded-full">
                           {g.downCount || 0}
                         </span>
