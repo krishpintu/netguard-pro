@@ -594,7 +594,7 @@ const Dashboard: React.FC = () => {
                       {group.name}
                     </h2>
                   </div>
-                  <div className="p-2 flex-1 overflow-auto">
+                  <div className="p-2 flex-1 overflow-auto ">
                     {group.items && group.items.length > 0 ? (
                       <TestHoneycomb
                         items={group.items
