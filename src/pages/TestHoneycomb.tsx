@@ -9,8 +9,6 @@ export interface HostItem {
 
 interface HoneycombProps {
   items: HostItem[];
-  cardWidth: number;
-  cardHeight: number;
 }
 
 const BASE_CELL_WIDTH = 92;
@@ -19,8 +17,6 @@ const SMALL_CONTAINER_WIDTH = 200;
 
 const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const initialHeightRef = useRef<number | null>(null);
-
   const [rows, setRows] = useState<HostItem[][]>([]);
   const [cellSize, setCellSize] = useState({
     width: BASE_CELL_WIDTH,
@@ -28,7 +24,6 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
   });
 
   const hoverScale = 2.2;
-  const basePadding = 5;
 
   /* =====================================================
      EDGE-AWARE HOVER TRANSFORM
@@ -63,51 +58,30 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
     if (overflowTop > 0) translateY += overflowTop;
     if (overflowBottom > 0) translateY -= overflowBottom;
 
+    // Set transform and z-index
     cell.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    cell.style.zIndex = "1000"; // ensures hovered cell is on top
   };
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const buildRows = (width: number, height: number) => {
-      if (initialHeightRef.current === null) {
-        initialHeightRef.current = height;
-      }
-
-      /* VERY NARROW CONTAINER */
+    const buildGrid = (width: number, height: number) => {
       if (width < SMALL_CONTAINER_WIDTH) {
+        setRows(items.map((item) => [item]));
         setCellSize({
           width: BASE_CELL_WIDTH,
           height: BASE_CELL_HEIGHT,
         });
-        setRows(items.map((item) => [item]));
         return;
       }
 
-      /* HEIGHT-DRIVEN SCALING */
-      const scale = Math.max(1, height / initialHeightRef.current);
-      let scaledWidth = BASE_CELL_WIDTH * scale;
-      let scaledHeight = BASE_CELL_HEIGHT * scale;
-
-      const horizontalOffset = -0.13 * scaledWidth;
+      const horizontalOffset = -0.13 * BASE_CELL_WIDTH;
       const maxPerRow = Math.max(
         1,
-        Math.floor(width / (scaledWidth + horizontalOffset)),
+        Math.floor(width / (BASE_CELL_WIDTH + horizontalOffset)),
       );
-      const maxAllowedWidth = width / maxPerRow - horizontalOffset;
 
-      if (scaledWidth > maxAllowedWidth) {
-        const ratio = maxAllowedWidth / scaledWidth;
-        scaledWidth = maxAllowedWidth;
-        scaledHeight *= ratio;
-      }
-
-      scaledWidth = Math.max(scaledWidth, BASE_CELL_WIDTH);
-      scaledHeight = Math.max(scaledHeight, BASE_CELL_HEIGHT);
-
-      setCellSize({ width: scaledWidth, height: scaledHeight });
-
-      /* BUILD STAGGERED ROWS */
       const result: HostItem[][] = [];
       let index = 0;
       let toggle = true;
@@ -119,18 +93,24 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
         toggle = !toggle;
       }
 
+      const longestRow = Math.max(...result.map((r) => r.length));
+      const horizontalGap = BASE_CELL_WIDTH * 0.88;
+      const availableWidth =
+        width - (longestRow - 1) * (horizontalGap - BASE_CELL_WIDTH);
+      const dynamicWidth = Math.min(
+        BASE_CELL_WIDTH * 2,
+        availableWidth / longestRow,
+      );
+      const dynamicHeight = (BASE_CELL_HEIGHT / BASE_CELL_WIDTH) * dynamicWidth;
+
+      setCellSize({ width: dynamicWidth, height: dynamicHeight });
       setRows(result);
     };
-
-    buildRows(
-      containerRef.current.offsetWidth,
-      containerRef.current.offsetHeight,
-    );
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-        buildRows(width, height);
+        buildGrid(width, height);
       }
     });
 
@@ -138,11 +118,7 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
     return () => resizeObserver.disconnect();
   }, [items]);
 
-  /* ===========================
-     CALCULATE GAPS
-  =========================== */
   const horizontalGap = cellSize.width * 0.88;
-  const verticalGap = cellSize.height * 0.75;
 
   return (
     <div ref={containerRef} className="honeycomb-wrapper w-full h-full">
@@ -153,8 +129,9 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
           align-items: flex-start;
           width: 100%;
           height: 100%;
-          overflow-x: hidden; 
-          overflow-y: auto;   
+          overflow-x: hidden;
+          overflow-y: auto;
+          padding-bottom: 10px;
         }
 
         .honeycomb-row {
@@ -169,10 +146,7 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
           );
           transition: transform 0.35s ease;
           transform-origin: center;
-        }
-
-        .honeycomb-cell-wrapper:hover {
-          z-index: 20;
+          z-index: 1;
         }
 
         .honeycomb-cell {
@@ -182,20 +156,20 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
           display: flex;
           align-items: center;
           justify-content: center;
+          pointer-events: none;
         }
       `}</style>
 
       {rows.map((row, rowIndex) => {
         const isOddRow = rowIndex % 2 !== 0;
-        const rowPaddingLeft = isOddRow ? horizontalGap / 2 : 0;
 
         return (
           <div
             key={rowIndex}
             className="honeycomb-row"
             style={{
-              paddingLeft: rowPaddingLeft,
-              marginBottom: -cellSize.height * 0.23, // maintain vertical overlap
+              paddingLeft: isOddRow ? horizontalGap / 2 : 0,
+              marginBottom: -cellSize.height * 0.23,
             }}
           >
             {row.map((item) => {
@@ -221,6 +195,7 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = "scale(1)";
+                    e.currentTarget.style.zIndex = "1"; // reset z-index
                   }}
                 >
                   <div
@@ -235,7 +210,6 @@ const TestHoneycomb: React.FC<HoneycombProps> = ({ items }) => {
                         fontSize: "12px",
                         padding: "15px",
                         textAlign: "center",
-                        display: "block",
                         width: "100%",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
